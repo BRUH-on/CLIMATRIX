@@ -1,0 +1,316 @@
+// =============================================================================
+// ClimaCore — Prisma Schema (Phase 1)
+// PostgreSQL, normalized, designed for future TimescaleDB migration.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// ENUMS
+// -----------------------------------------------------------------------------
+
+enum Role {
+  ADMIN
+  INSPECTOR
+  INDUSTRY
+}
+
+enum ComplianceStatus {
+  COMPLIANT
+  WARNING
+  VIOLATION
+}
+
+enum NoticeStatus {
+  DRAFT
+  ISSUED
+  ACKNOWLEDGED
+  RESOLVED
+  ESCALATED
+  CANCELLED
+}
+
+enum NoticeSeverity {
+  WARNING
+  CRITICAL
+}
+
+enum Pollutant {
+  CO2
+  NOX
+  SOX
+  PM25
+  PM10
+  CO
+}
+
+enum FuelType {
+  COAL
+  DIESEL
+  PETROL
+  NATURAL_GAS
+  LPG
+  FURNACE_OIL
+  BIOMASS
+  ELECTRICITY_GRID
+  OTHER
+}
+
+enum IndustrySector {
+  POWER
+  STEEL
+  CEMENT
+  CHEMICAL
+  REFINING
+  TEXTILE
+  PAPER
+  MANUFACTURING
+  MINING
+  OTHER
+}
+
+// -----------------------------------------------------------------------------
+// AUTH & USERS
+// -----------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  fullName     String
+  phone        String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+
+  // RBAC
+  role Role
+
+  // INDUSTRY users belong to a single factory.
+  industryId String?
+  industry   Industry? @relation("IndustryStaff", fields: [industryId], references: [id])
+
+  // INSPECTOR users have a many-to-many with industries.
+  inspectorAssignments InspectorAssignment[]
+
+  // Auth
+  refreshTokens RefreshToken[]
+
+  // Audit linkage
+  emissionLogsSubmitted EmissionLog[]      @relation("EmissionLogSubmitter")
+  noticesIssued         ComplianceNotice[] @relation("NoticeIssuer")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([industryId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+// -----------------------------------------------------------------------------
+// INDUSTRIES
+// -----------------------------------------------------------------------------
+
+model Industry {
+  id             String         @id @default(cuid())
+  name           String
+  registrationNo String         @unique // CIN / corporate ID
+  sector         IndustrySector
+  contactEmail   String
+  contactPhone   String?
+  addressLine1   String
+  addressLine2   String?
+  city           String
+  state          String
+  postalCode     String
+  country        String         @default("IN")
+  latitude       Decimal?       @db.Decimal(9, 6)
+  longitude      Decimal?       @db.Decimal(9, 6)
+  isActive       Boolean        @default(true)
+
+  staff                User[]                @relation("IndustryStaff")
+  inspectorAssignments InspectorAssignment[]
+  emissionLogs         EmissionLog[]
+  complianceNotices    ComplianceNotice[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sector])
+  @@index([city, state])
+  @@map("industries")
+}
+
+model InspectorAssignment {
+  id           String    @id @default(cuid())
+  inspectorId  String
+  inspector    User      @relation(fields: [inspectorId], references: [id], onDelete: Cascade)
+  industryId   String
+  industry     Industry  @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  assignedAt   DateTime  @default(now())
+  unassignedAt DateTime?
+
+  @@unique([inspectorId, industryId])
+  @@index([industryId])
+  @@map("inspector_assignments")
+}
+
+// -----------------------------------------------------------------------------
+// COMPLIANCE THRESHOLDS — configurable rule set per (sector, pollutant)
+// -----------------------------------------------------------------------------
+
+model ComplianceThreshold {
+  id             String         @id @default(cuid())
+  sector         IndustrySector
+  pollutant      Pollutant
+  unit           String // e.g. "kg/month", "t/month"
+  warningLimit   Decimal        @db.Decimal(14, 4)
+  violationLimit Decimal        @db.Decimal(14, 4)
+  effectiveFrom  DateTime       @default(now())
+  effectiveUntil DateTime?
+  isActive       Boolean        @default(true)
+  notes          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sector, pollutant, effectiveFrom])
+  @@index([sector, pollutant, isActive])
+  @@map("compliance_thresholds")
+}
+
+// -----------------------------------------------------------------------------
+// EMISSION LOGS — time-series; future TimescaleDB hypertable.
+// NOTE for migration: convert PK to (id, recordedAt) — Timescale requires the
+// time column to be part of every unique constraint on a hypertable.
+// -----------------------------------------------------------------------------
+
+model EmissionLog {
+  id            String   @id @default(cuid())
+  industryId    String
+  industry      Industry @relation(fields: [industryId], references: [id], onDelete: Cascade)
+  submittedById String
+  submittedBy   User     @relation("EmissionLogSubmitter", fields: [submittedById], references: [id])
+
+  // Reporting period (monthly per Tier 1 spec)
+  periodStart DateTime @db.Date
+  periodEnd   DateTime @db.Date
+
+  // Time-series partition column.
+  recordedAt DateTime @default(now())
+
+  // Raw inputs submitted by Industry user
+  electricityKwh   Decimal @default(0) @db.Decimal(14, 4)
+  productionVolume Decimal @default(0) @db.Decimal(14, 4)
+  productionUnit   String  @default("UNITS")
+
+  fuelEntries FuelConsumption[]
+
+  // Computed outputs (filled by Compliance Rule Engine)
+  co2Kg    Decimal? @db.Decimal(14, 4)
+  noxKg    Decimal? @db.Decimal(14, 4)
+  soxKg    Decimal? @db.Decimal(14, 4)
+  pm25Ugm3 Decimal? @db.Decimal(10, 4)
+
+  // Per-pollutant flags
+  co2Status ComplianceStatus?
+  noxStatus ComplianceStatus?
+  soxStatus ComplianceStatus?
+
+  // Worst-of result used by dashboard scorecards
+  overallStatus ComplianceStatus @default(COMPLIANT)
+
+  notes  String?
+  notice ComplianceNotice?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([industryId, periodStart, periodEnd])
+  @@index([recordedAt])
+  @@index([industryId, recordedAt(sort: Desc)])
+  @@index([overallStatus])
+  @@map("emission_logs")
+}
+
+model FuelConsumption {
+  id            String      @id @default(cuid())
+  emissionLogId String
+  emissionLog   EmissionLog @relation(fields: [emissionLogId], references: [id], onDelete: Cascade)
+  fuelType      FuelType
+  quantity      Decimal     @db.Decimal(14, 4)
+  unit          String // kg, L, m3, kWh
+
+  @@index([emissionLogId])
+  @@index([fuelType])
+  @@map("fuel_consumptions")
+}
+
+// -----------------------------------------------------------------------------
+// COMPLIANCE NOTICES
+// -----------------------------------------------------------------------------
+
+model ComplianceNotice {
+  id            String      @id @default(cuid())
+  noticeNumber  String      @unique // e.g. CC-2026-000123
+  industryId    String
+  industry      Industry    @relation(fields: [industryId], references: [id], onDelete: Restrict)
+  emissionLogId String      @unique // one notice per failing log (Tier 1)
+  emissionLog   EmissionLog @relation(fields: [emissionLogId], references: [id], onDelete: Restrict)
+
+  issuedById String? // null when system-generated
+  issuedBy   User?   @relation("NoticeIssuer", fields: [issuedById], references: [id])
+
+  status   NoticeStatus   @default(DRAFT)
+  severity NoticeSeverity @default(WARNING)
+
+  // Snapshotted breach details (kept even if thresholds change later)
+  breachedPollutants Pollutant[]
+  summary            String
+  legalReference     String? // e.g. "Air Act §21"
+
+  // PDF artifact (Puppeteer output stored in S3/MinIO)
+  pdfStorageKey  String?
+  pdfUrl         String? // optional cached signed URL
+  pdfGeneratedAt DateTime?
+
+  // Email dispatch
+  emailedAt       DateTime?
+  emailRecipients String[] // industry contact + assigned inspectors
+
+  issuedAt       DateTime?
+  dueBy          DateTime?
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([industryId, status])
+  @@index([status])
+  @@index([issuedAt])
+  @@map("compliance_notices")
+}
