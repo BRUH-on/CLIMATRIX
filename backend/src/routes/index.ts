@@ -1,3 +1,4 @@
+import publicHeatmapRouter from "./publicHeatmap";
 import { Router } from 'express';
 import { healthRouter } from './health.routes';
 
@@ -6,5 +7,7 @@ import { healthRouter } from './health.routes';
  * Phase 3+ routers (auth, industries, emissions, notices) plug in here.
  */
 export const apiRouter = Router();
+
+apiRouter.use("/public", publicHeatmapRouter);
 
 apiRouter.use('/health', healthRouter);
