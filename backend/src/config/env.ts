@@ -1,6 +1,17 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
+/**
+ * Treats blank-string env vars as if they were unset.
+ * Lets a developer leave `JWT_ACCESS_SECRET=` in `.env` during Phase 2
+ * without tripping the `.min(32)` rule. The Phase 3 auth controller will
+ * enforce presence at the point of use.
+ */
+const optionalSecret = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().min(32).optional(),
+);
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(4000),
@@ -13,9 +24,9 @@ const envSchema = z.object({
     .default('info'),
 
   // Auth secrets — required from Phase 3 onward. Optional here so the server
-  // can boot during scaffolding work.
-  JWT_ACCESS_SECRET: z.string().min(32).optional(),
-  JWT_REFRESH_SECRET: z.string().min(32).optional(),
+  // can boot during scaffolding work. Empty strings are treated as unset.
+  JWT_ACCESS_SECRET: optionalSecret,
+  JWT_REFRESH_SECRET: optionalSecret,
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('7d'),
 });
