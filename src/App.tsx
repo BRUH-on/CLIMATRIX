@@ -6,6 +6,7 @@ import {
   ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from "recharts";
+import CapabilitiesModal from "./components/CapabilitiesModal";
  
 // ── STORAGE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -590,6 +591,7 @@ const Login = ({ onLogin }) => {
 // ── TOPBAR ────────────────────────────────────────────────────────────────────
 const Topbar = ({ user, page, setPage, onLogout, emissions }) => {
   const [time, setTime] = useState(new Date());
+  const [showCaps, setShowCaps] = useState(false);
   useEffect(() => { const iv = setInterval(() => setTime(new Date()), 1000); return () => clearInterval(iv); }, []);
   const latest = emissions[0];
   const status = latest ? (latest.co2 > 270 || latest.nox > 50 ? 'CRITICAL' : latest.co2 > 240 ? 'WARNING' : 'NOMINAL') : 'STANDBY';
@@ -614,6 +616,10 @@ const Topbar = ({ user, page, setPage, onLogout, emissions }) => {
             {p.charAt(0).toUpperCase() + p.slice(1)}
           </button>
         ))}
+        <button className="nav-btn" onClick={() => setShowCaps(true)}>
+          <span className="nav-indicator" />
+          Capabilities
+        </button>
       </nav>
  
       {/* Right */}
@@ -628,6 +634,8 @@ const Topbar = ({ user, page, setPage, onLogout, emissions }) => {
         </div>
         <button className="btn btn-sm btn-danger" onClick={onLogout} style={{ fontSize: 10, letterSpacing: '0.1em' }}>DISCONNECT</button>
       </div>
+
+      <CapabilitiesModal open={showCaps} onClose={() => setShowCaps(false)} />
     </div>
   );
 };
