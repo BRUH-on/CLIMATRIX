@@ -29,6 +29,20 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: optionalSecret,
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('7d'),
+
+  // Bootstrap admin (read by prisma/seed.ts only). Optional.
+  ADMIN_EMAIL: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().email().optional(),
+  ),
+  ADMIN_PASSWORD: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().min(10).optional(),
+  ),
+  ADMIN_FULL_NAME: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().min(2).max(120).optional(),
+  ),
 });
 
 const parsed = envSchema.safeParse(process.env);
