@@ -641,7 +641,7 @@ const Topbar = ({ user, page, setPage, onLogout, emissions }) => {
 };
  
 // ── DASHBOARD ─────────────────────────────────────────────────────────────────
-const Dashboard = ({ emissions }) => {
+const Dashboard = ({ emissions, setPage }) => {
   const latest = emissions[0] || {};
   const prev = emissions[1] || {};
   const pct = (a, b) => b ? +((a - b) / b * 100).toFixed(1) : null;
@@ -805,20 +805,120 @@ const Dashboard = ({ emissions }) => {
         </div>
  
         {/* Platform caps */}
-        <div className="sketch-panel a5" style={{ padding: '18px' }}>
-          <div className="stitle">Capabilities</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {caps.map((cap, i) => (
-              <div key={i} style={{ padding: '10px 12px', border: '1px solid var(--ink5)', background: 'rgba(240,235,224,0.5)', transition: 'all 0.2s', cursor: 'default' }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--ink3)'; e.currentTarget.style.background = 'rgba(26,20,16,0.06)'; e.currentTarget.style.transform = 'translate(-1px,-1px)'; e.currentTarget.style.boxShadow = '2px 2px 0 var(--ink5)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--ink5)'; e.currentTarget.style.background = 'rgba(240,235,224,0.5)'; e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}>
-                <div style={{ fontFamily: 'var(--font-title)', fontSize: 11, fontWeight: 500, color: 'var(--ink)', letterSpacing: '0.05em', marginBottom: 4 }}>{cap.n}</div>
-                <div style={{ fontFamily: 'Special Elite', fontSize: 9, color: 'var(--ink4)', lineHeight: 1.5 }}>{cap.d}</div>
-              </div>
-            ))}
-          </div>
+<div className="sketch-panel a5" style={{ padding: '18px' }}>
+  <div className="stitle">Capabilities</div>
+
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+    {caps.map((cap, i) => (
+      <div
+        key={i}
+        onClick={() => {
+          if (cap.n === "Public Heatmap Portal") {
+            setPage("heatmap");
+          }
+        }}
+        style={{
+          padding: '10px 12px',
+          border: '1px solid var(--ink5)',
+          background: 'rgba(240,235,224,0.5)',
+          transition: 'all 0.2s',
+          cursor:
+            cap.n === "Public Heatmap Portal"
+              ? 'pointer'
+              : 'default'
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.borderColor = 'var(--ink3)';
+          e.currentTarget.style.background = 'rgba(26,20,16,0.06)';
+          e.currentTarget.style.transform = 'translate(-1px,-1px)';
+          e.currentTarget.style.boxShadow = '2px 2px 0 var(--ink5)';
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = 'var(--ink5)';
+          e.currentTarget.style.background = 'rgba(240,235,224,0.5)';
+          e.currentTarget.style.transform = '';
+          e.currentTarget.style.boxShadow = '';
+        }}
+      >
+        <div
+          style={{
+            fontFamily: 'var(--font-title)',
+            fontSize: 11,
+            fontWeight: 500,
+            color: 'var(--ink)',
+            letterSpacing: '0.05em',
+            marginBottom: 4
+          }}
+        >
+          {cap.n}
+        </div>
+
+        <div
+          style={{
+            fontFamily: 'Special Elite',
+            fontSize: 9,
+            color: 'var(--ink4)',
+            lineHeight: 1.5
+          }}
+        >
+          {cap.d}
         </div>
       </div>
+    ))}
+  </div>
+</div>
+      </div>
+    </div>
+  );
+};
+
+const HeatmapPortal = () => {
+  const [items, setItems] = useState([]);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/v1/public/heatmap")
+      .then((res) => res.json())
+      .then((json) => setItems(json.data || []));
+  }, []);
+
+  return (
+    <div style={{ padding: 28 }}>
+      <h1 style={{ marginBottom: 20 }}>
+        Public Heatmap Portal
+      </h1>
+
+      {items.map((item) => (
+        <div
+          key={item.industryId}
+          style={{
+            marginBottom: 16,
+            padding: 18,
+            border: "2px solid #333",
+            background:
+              item.color === "GREEN"
+                ? "#d4f8d4"
+                : item.color === "YELLOW"
+                ? "#fff3bf"
+                : "#ffd6d6",
+          }}
+        >
+          <h2>{item.name}</h2>
+
+          <p>Status: {item.status}</p>
+
+          <p>
+            Location: {item.city}, {item.state}
+          </p>
+
+          <p>
+            Coordinates:
+            {" "}
+            {item.latitude},
+            {" "}
+            {item.longitude}
+          </p>
+        </div>
+      ))}
     </div>
   );
 };
@@ -1296,10 +1396,13 @@ export default function App() {
       <div className="scanline" />
       <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', background: 'var(--paper)' }}>
         <Topbar user={user} page={page} setPage={setPage} onLogout={() => setUser(null)} emissions={emissions} />
-        {page === 'dashboard'  && <Dashboard  emissions={emissions} />}
+        {page === 'dashboard'  && (<Dashboard  emissions={emissions} setPage={setPage}  />)}
         {page === 'emissions'  && <Emissions  user={user} emissions={emissions} setEmissions={setEmissions} />}
         {page === 'compliance' && <Compliance emissions={emissions} />}
         {page === 'reports'    && <Reports    user={user} emissions={emissions} />}
+        {page === "heatmap" && (
+  <HeatmapPortal />
+)}
       </div>
     </>
   );

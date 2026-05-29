@@ -53,3 +53,10 @@ process.on('uncaughtException', (err) => {
   logger.fatal({ err }, 'Uncaught exception — exiting');
   process.exit(1);
 });
+
+app.get("/api/v1/health", (_req, res) => {
+  res.json({
+    status: "ok",
+    message: "ClimaCore backend is running",
+  });
+});
