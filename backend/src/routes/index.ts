@@ -1,13 +1,14 @@
-import publicHeatmapRouter from "./publicHeatmap";
 import { Router } from 'express';
 import { healthRouter } from './health.routes';
+import { authRouter } from './auth.routes';
+import publicHeatmapRouter from './publicHeatmap';
 
 /**
  * Root API router — mounted by the app at `/api/v1`.
- * Phase 3+ routers (auth, industries, emissions, notices) plug in here.
+ * Future routers (industries, emissions, notices, compliance) plug in here.
  */
 export const apiRouter = Router();
 
-apiRouter.use("/public", publicHeatmapRouter);
-
 apiRouter.use('/health', healthRouter);
+apiRouter.use('/auth', authRouter);
+apiRouter.use('/public', publicHeatmapRouter);
