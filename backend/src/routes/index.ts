@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { healthRouter } from './health.routes';
 import { authRouter } from './auth.routes';
 import { aqiRouter } from './aqi.routes';
+import { reportRouter } from './report.routes';
 import publicHeatmapRouter from './publicHeatmap';
 
 /**
@@ -13,4 +14,5 @@ export const apiRouter = Router();
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/aqi', aqiRouter);
+apiRouter.use('/reports', reportRouter);
 apiRouter.use('/public', publicHeatmapRouter);
