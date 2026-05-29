@@ -314,3 +314,32 @@ model ComplianceNotice {
   @@index([issuedAt])
   @@map("compliance_notices")
 }
+
+
+
+// -----------------------------------------------------------------------------
+// AIR QUALITY READINGS — ingested from OpenAQ via cron, broadcast over WebSocket
+// -----------------------------------------------------------------------------
+
+model AirQualityReading {
+  id          String   @id @default(cuid())
+  stationName String
+  city        String
+  country     String   @default("IN")
+  latitude    Float?
+  longitude   Float?
+
+  parameter   String // pm25, pm10, no2, so2, co, o3
+  value       Float
+  unit        String
+  source      String   @default("openaq")
+
+  recordedAt  DateTime
+  fetchedAt   DateTime @default(now())
+
+  // De-dupe identical observations from re-runs of the cron.
+  @@unique([stationName, parameter, recordedAt])
+  @@index([city, parameter, recordedAt(sort: Desc)])
+  @@index([recordedAt(sort: Desc)])
+  @@map("air_quality_readings")
+}
