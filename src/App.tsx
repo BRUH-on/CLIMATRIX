@@ -7,6 +7,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from "recharts";
 import CapabilitiesModal from "./components/CapabilitiesModal";
+import LiveAirQualityPanel from "./components/LiveAirQualityPanel";
 import { registerUser, loginUser, logoutUser, bootstrapUser } from "./lib/auth";
  
 // ── STORAGE ──────────────────────────────────────────────────────────────────
@@ -758,6 +759,9 @@ const Dashboard = ({ emissions, setPage }) => {
         </div>
       </div>
  
+      {/* Live Air Quality (real-time, OpenAQ + WebSocket) */}
+      <LiveAirQualityPanel />
+
       {/* Stat cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 12, marginBottom: 16 }}>
         {[

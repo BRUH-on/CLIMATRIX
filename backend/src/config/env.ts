@@ -43,6 +43,16 @@ const envSchema = z.object({
     (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
     z.string().min(2).max(120).optional(),
   ),
+
+  // OpenAQ real-time air quality
+  OPENAQ_API_URL: z.string().url().default('https://api.openaq.org/v2'),
+  OPENAQ_API_KEY: z.preprocess(
+    (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+    z.string().optional(),
+  ),
+  OPENAQ_COUNTRY: z.string().default('IN'),
+  OPENAQ_FETCH_LIMIT: z.coerce.number().int().positive().max(1000).default(200),
+  OPENAQ_CRON: z.string().default('*/10 * * * *'),
 });
 
 const parsed = envSchema.safeParse(process.env);
