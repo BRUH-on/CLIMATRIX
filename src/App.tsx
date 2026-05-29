@@ -7,6 +7,7 @@ import {
   RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
 } from "recharts";
 import CapabilitiesModal from "./components/CapabilitiesModal";
+import { registerUser, loginUser, logoutUser, bootstrapUser } from "./lib/auth";
  
 // ── STORAGE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -489,19 +490,45 @@ const SketchScene = ({ children }) => {
  
 // ── LOGIN ─────────────────────────────────────────────────────────────────────
 const Login = ({ onLogin }) => {
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
   const [email, setEmail] = useState('');
   const [pass, setPass] = useState('');
+  const [fullName, setFullName] = useState('');
   const [role, setRole] = useState('');
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
- 
-  const submit = () => {
-    if (!role) { setErr('Select clearance level'); return; }
+
+  const submit = async () => {
+    setErr('');
     if (!email || !pass) { setErr('Enter credentials'); return; }
+    if (mode === 'register') {
+      if (!fullName.trim()) { setErr('Enter your full name'); return; }
+      if (pass.length < 10) { setErr('Password must be at least 10 characters'); return; }
+      if (role && role !== 'industry') {
+        setErr('Self-registration is INDUSTRY-only. ADMIN / INSPECTOR roles are provisioned by the system.');
+        return;
+      }
+    }
     setLoading(true);
-    setTimeout(() => onLogin({ id: Date.now(), name: email.split('@')[0].replace(/[._]/g, ' '), email, role }), 900);
+    try {
+      const u = mode === 'register'
+        ? await registerUser({ email: email.trim(), password: pass, fullName: fullName.trim() })
+        : await loginUser(email.trim(), pass);
+      onLogin({
+        id: u.id,
+        name: u.fullName,
+        email: u.email,
+        role: (u.role || '').toLowerCase(),
+        industryId: u.industryId ?? null,
+        backendRole: u.role,
+      });
+    } catch (e) {
+      setErr(e?.message || (mode === 'register' ? 'Registration failed' : 'Login failed'));
+    } finally {
+      setLoading(false);
+    }
   };
- 
+
   const roles = [
     { v: 'industry',   l: 'Factory Controller',  s: 'Submit & manage emissions' },
     { v: 'government', l: 'Authority Admin',      s: 'Full regulatory oversight' },
@@ -526,20 +553,47 @@ const Login = ({ onLogin }) => {
  
               <div style={{ fontFamily: 'var(--font-title)', fontSize: 9, letterSpacing: '0.3em', color: 'var(--ink4)', marginBottom: 4 }}>CLIMACORE INSPECTOR DASHBOARD</div>
               <div className="sketch-line" style={{ marginBottom: 14 }} />
- 
+
+              {/* Mode toggle */}
+              <div style={{ display: 'flex', gap: 4, marginBottom: 14 }}>
+                {['login', 'register'].map(m => (
+                  <button key={m} type="button" onClick={() => { setMode(m); setErr(''); }}
+                    style={{
+                      flex: 1, padding: '6px 8px', cursor: 'pointer',
+                      background: mode === m ? 'var(--ink2)' : 'transparent',
+                      color: mode === m ? 'var(--paper)' : 'var(--ink4)',
+                      border: `1.5px solid ${mode === m ? 'var(--ink)' : 'var(--ink5)'}`,
+                      fontFamily: 'var(--font-title)', fontSize: 10, fontWeight: 500,
+                      letterSpacing: '0.2em', textTransform: 'uppercase',
+                      transition: 'all 0.15s',
+                    }}>
+                    {m === 'login' ? 'Sign In' : 'Register'}
+                  </button>
+                ))}
+              </div>
+
+              {mode === 'register' && (
+                <div style={{ marginBottom: 12 }}>
+                  <label className="lbl">FULL NAME</label>
+                  <input className="inp" type="text" value={fullName} onChange={e => setFullName(e.target.value)}
+                    placeholder="Jane Operator" onKeyDown={e => e.key === 'Enter' && submit()}
+                    style={{ fontSize: 12, height: 36 }} />
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div>
                   <label className="lbl">OPERATOR ID</label>
                   <input className="inp" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="operator@climacore.env" onKeyDown={e => e.key === 'Enter' && submit()} autoFocus style={{ fontSize: 12, height: 36 }} />
                 </div>
                 <div>
-                  <label className="lbl">AUTH CODE</label>
+                  <label className="lbl">AUTH CODE {mode === 'register' && <span style={{ fontFamily: 'Special Elite', fontSize: 9, color: 'var(--ink4)' }}>(min 10 chars)</span>}</label>
                   <input className="inp" type="password" value={pass} onChange={e => setPass(e.target.value)} placeholder="••••••••" onKeyDown={e => e.key === 'Enter' && submit()} style={{ fontSize: 12, height: 36 }} />
                 </div>
               </div>
  
               <div style={{ marginBottom: 14 }}>
-                <label className="lbl" style={{ marginBottom: 8 }}>CLEARANCE LEVEL</label>
+                <label className="lbl" style={{ marginBottom: 8 }}>CLEARANCE LEVEL {mode === 'register' && <span style={{ fontFamily: 'Special Elite', fontSize: 9, color: 'var(--ink4)' }}>(self-registration: INDUSTRY only)</span>}</label>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 6 }}>
                   {roles.map(r => (
                     <label key={r.v} style={{ display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 10px', border: `2px solid ${role === r.v ? 'var(--ink)' : 'var(--ink5)'}`, background: role === r.v ? 'rgba(26,20,16,0.06)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s', boxShadow: role === r.v ? '2px 2px 0 var(--ink4)' : 'none' }}>
@@ -557,13 +611,13 @@ const Login = ({ onLogin }) => {
  
               {/* Progress bar style login button */}
               <div style={{ position: 'relative' }}>
-                <button className="btn btn-primary" onClick={submit} style={{ width: '100%', letterSpacing: '0.2em', fontSize: 12, height: 38 }}>
+                <button className="btn btn-primary" onClick={submit} disabled={loading} style={{ width: '100%', letterSpacing: '0.2em', fontSize: 12, height: 38 }}>
                   {loading ? (
                     <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{ display: 'inline-block', width: 12, height: 12, border: '2px solid rgba(240,235,224,0.3)', borderTopColor: 'var(--paper)', borderRadius: '50%', animation: 'spinSlow 0.8s linear infinite' }} />
-                      INITIALIZING...
+                      {mode === 'register' ? 'CREATING ACCOUNT...' : 'INITIALIZING...'}
                     </span>
-                  ) : 'INITIALIZE SESSION'}
+                  ) : (mode === 'register' ? 'CREATE ACCOUNT' : 'INITIALIZE SESSION')}
                 </button>
                 {loading && (
                   <div style={{ position: 'absolute', bottom: -4, left: 0, right: 0, height: 4, background: 'rgba(26,20,16,0.1)', overflow: 'hidden' }}>
@@ -1384,18 +1438,49 @@ const Reports = ({ user, emissions }) => {
 // ── APP ROOT ──────────────────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(null);
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [page, setPage] = useState('dashboard');
   const [emissions, setEmissions] = useState(() => S.get('emissions', []));
- 
+
+  // On first mount, try to restore a session from a saved access token.
+  useEffect(() => {
+    let cancelled = false;
+    bootstrapUser()
+      .then(u => {
+        if (cancelled || !u) return;
+        setUser({
+          id: u.id,
+          name: u.fullName,
+          email: u.email,
+          role: (u.role || '').toLowerCase(),
+          industryId: u.industryId ?? null,
+          backendRole: u.role,
+        });
+      })
+      .finally(() => { if (!cancelled) setBootstrapping(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (bootstrapping) {
+    return (
+      <>
+        <style>{CSS}</style>
+        <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--paper)', fontFamily: 'Special Elite', fontSize: 11, color: 'var(--ink4)', letterSpacing: '0.3em' }}>
+          INITIALIZING SESSION...
+        </div>
+      </>
+    );
+  }
+
   if (!user) return <><style>{CSS}</style><Login onLogin={u => { setUser(u); setPage('dashboard'); }} /></>;
- 
+
   return (
     <>
       <style>{CSS}</style>
       <div className="sketch-bg" />
       <div className="scanline" />
       <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', background: 'var(--paper)' }}>
-        <Topbar user={user} page={page} setPage={setPage} onLogout={() => setUser(null)} emissions={emissions} />
+        <Topbar user={user} page={page} setPage={setPage} onLogout={() => { logoutUser().finally(() => setUser(null)); }} emissions={emissions} />
         {page === 'dashboard'  && (<Dashboard  emissions={emissions} setPage={setPage}  />)}
         {page === 'emissions'  && <Emissions  user={user} emissions={emissions} setEmissions={setEmissions} />}
         {page === 'compliance' && <Compliance emissions={emissions} />}
