@@ -11,6 +11,7 @@ export interface EmissionFilters {
   startDate?: Date;
   endDate?: Date;
   limit: number;
+  latestFirst?: boolean;
 }
 
 export async function listEmissionLogs(user: AuthedUser, filters: EmissionFilters) {
@@ -47,7 +48,9 @@ export async function listEmissionLogs(user: AuthedUser, filters: EmissionFilter
         orderBy: { fuelType: 'asc' },
       },
     },
-    orderBy: [{ periodStart: 'asc' }, { recordedAt: 'asc' }],
+    orderBy: filters.latestFirst
+      ? [{ periodStart: 'desc' }, { recordedAt: 'desc' }]
+      : [{ periodStart: 'asc' }, { recordedAt: 'asc' }],
     take: filters.limit,
   });
 }

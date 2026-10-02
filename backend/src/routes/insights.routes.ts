@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/requireAuth';
-import { validateIndustry } from '../controllers/insights.controller';
+import {
+	getIndustryComplianceAssessments,
+	getIndustryAnomalies,
+	validateIndustry,
+} from '../controllers/insights.controller';
+import { retrieve } from '../controllers/retrieval.controller';
 
 export const insightsRouter = Router();
 insightsRouter.use(requireAuth);
 insightsRouter.get('/validation', validateIndustry);
+insightsRouter.get('/anomalies', getIndustryAnomalies);
+insightsRouter.get('/compliance', getIndustryComplianceAssessments);
+insightsRouter.post('/retrieval', retrieve);
