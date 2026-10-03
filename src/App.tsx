@@ -11,6 +11,7 @@ import LiveAirQualityPanel from "./components/LiveAirQualityPanel";
 import { registerUser, loginUser, logoutUser, bootstrapUser } from "./lib/auth";
 import { listReports, generateReport as generateReportApi, deleteReport as deleteReportApi, downloadReport, uiTypeToBackend, formatBytes } from "./lib/reports";
 import { detectAnomaly } from "./lib/anomaly";
+import AIAssistantPanel from "./components/AIAssistantPanel";
  
 // ── STORAGE ──────────────────────────────────────────────────────────────────
 const S = {
@@ -988,6 +989,7 @@ const Dashboard = ({ emissions, setPage }) => {
     ))}
   </div>
 </div>
+  <AIAssistantPanel />
       </div>
     </div>
   );

@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test src/services/analytics/validationEngine.test.ts src/services/analytics/anomalyEngine.test.ts src/services/analytics/complianceEngine.test.ts src/services/llm/assistantService.test.ts src/controllers/dataRead.test.ts prisma/demoSeedData.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",

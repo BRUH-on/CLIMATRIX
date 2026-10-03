@@ -11,6 +11,14 @@ const optionalSecret = z.preprocess(
   (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
   z.string().min(32).optional(),
 );
+const optionalString = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().min(1).optional(),
+);
+const optionalUrl = z.preprocess(
+  (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
+  z.string().url().optional(),
+);
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -53,6 +61,11 @@ const envSchema = z.object({
   OPENAQ_COUNTRY: z.string().default('IN'),
   OPENAQ_FETCH_LIMIT: z.coerce.number().int().positive().max(1000).default(200),
   OPENAQ_CRON: z.string().default('*/10 * * * *'),
+
+  // Optional server-side OpenAI-compatible chat-completions configuration.
+  LLM_API_URL: optionalUrl,
+  LLM_MODEL: optionalString,
+  LLM_API_KEY: optionalString,
 });
 
 const parsed = envSchema.safeParse(process.env);
